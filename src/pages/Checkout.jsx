@@ -35,7 +35,8 @@ function Checkout() {
 
         try {
             // ✅ Use your live backend URL instead of localhost
-            const res = await fetch("https://robot-backend-ywdd.onrender.com/orders", {
+            const res = await fetch("https://robot-backend-ywcd.onrender.com/orders", {
+
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(order),
