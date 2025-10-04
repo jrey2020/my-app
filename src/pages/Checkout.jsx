@@ -38,7 +38,7 @@ function Checkout() {
             const API_BASE =
                 import.meta.env.MODE === "development"
                     ? "http://localhost:5000"
-                    : "https://robot-backend-vwed.onrender.com"; // <-- update with your deployed backend URL
+                    : "https://robot-backend-ywcd.onrender.com"; // <-- update with your deployed backend URL
 
             const res = await fetch(`${API_BASE}/orders`, {
                 method: "POST",
