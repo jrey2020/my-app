@@ -31,26 +31,32 @@ function Checkout() {
             city: form.city,
             zip: form.zip,
             items: cart,
+            total,
         };
 
         try {
-            // ✅ Use your live backend URL instead of localhost
-            const res = await fetch("https://robot-backend-ywcd.onrender.com/orders", {
+            const API_BASE =
+                import.meta.env.MODE === "development"
+                    ? "http://localhost:5000"
+                    : "https://robot-backend.onrender.com"; // <-- update with your deployed backend URL
 
+            const res = await fetch(`${API_BASE}/orders`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(order),
             });
 
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+
             const data = await res.json();
             alert(`✅ Purchase complete!\n\nOrder ID: ${data.id}`);
             clearCart();
-
-            // ✅ Redirect user to main page (menu)
             navigate("/");
         } catch (err) {
-            console.error("Error posting order:", err);
-            alert("Error completing purchase.");
+            console.error("❌ Error posting order:", err);
+            alert("Error completing purchase. Please try again.");
         }
     };
 
