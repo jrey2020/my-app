@@ -4,7 +4,24 @@ import { useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
-const stripePromise = loadStripe("pk_test_51SFNrNDHQ9S6PqjANgCcyTbXQh3ZaYWlzSwsUU5iN1uICg7yx0G6ZbyZiQ06zoJVWBCfMd4EQeJ69doZ1kx9yQC300R8FU3HGd");
+// ✅ Force load Stripe.js manually in case Vercel blocks it
+if (typeof window !== "undefined") {
+    if (!window.Stripe) {
+        const script = document.createElement("script");
+        script.src = "https://js.stripe.com/v3/";
+        script.async = true;
+        script.onload = () => console.log("✅ Stripe.js loaded manually");
+        script.onerror = () => console.error("❌ Stripe.js failed to load");
+        document.head.appendChild(script);
+    } else {
+        console.log("✅ Stripe.js already present");
+    }
+}
+
+// ✅ Initialize Stripe
+const stripePromise = loadStripe(
+    "pk_test_51SFNrNDHQ9S6PqjANgCcyTbXQh3ZaYWlzSwsUU5iN1uICg7yx0G6ZbyZiQ06zoJVWBCfMd4EQeJ69doZ1kx9yQC300R8FU3HGd"
+);
 
 function CheckoutForm() {
     const { cart, clearCart } = useContext(CartContext);
@@ -25,7 +42,6 @@ function CheckoutForm() {
         }
 
         setLoading(true);
-
         const total = cart.reduce((sum, item) => sum + item.price, 0);
         const amountInCents = Math.round(total * 100);
 
@@ -35,6 +51,7 @@ function CheckoutForm() {
                     ? "http://localhost:5000"
                     : "https://robot-backend-ywcd.onrender.com";
 
+            // Step 1: Create PaymentIntent
             const res = await fetch(`${API_BASE}/create-payment-intent`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -42,6 +59,7 @@ function CheckoutForm() {
             });
             const { clientSecret } = await res.json();
 
+            // Step 2: Confirm payment
             const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
                 payment_method: { card: elements.getElement(CardElement) },
             });
@@ -53,6 +71,7 @@ function CheckoutForm() {
             }
 
             if (paymentIntent.status === "succeeded") {
+                // Step 3: Save order
                 const order = {
                     customer: form.name,
                     address: form.address,
@@ -90,7 +109,7 @@ function CheckoutForm() {
             <input name="city" placeholder="City" value={form.city} onChange={handleChange} />
             <input name="zip" placeholder="Zip" value={form.zip} onChange={handleChange} />
 
-            {/* ✅ Styled Stripe Card Input */}
+            {/* ✅ Stripe Card Input */}
             <div
                 style={{
                     marginTop: "20px",
@@ -106,7 +125,7 @@ function CheckoutForm() {
                             base: {
                                 fontSize: "16px",
                                 color: "#32325d",
-                                '::placeholder': { color: "#aab7c4" },
+                                "::placeholder": { color: "#aab7c4" },
                             },
                             invalid: { color: "#fa755a" },
                         },
