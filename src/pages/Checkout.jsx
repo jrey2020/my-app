@@ -35,7 +35,6 @@ function CheckoutForm() {
                     ? "http://localhost:5000"
                     : "https://robot-backend-ywcd.onrender.com";
 
-            // Step 1: Create PaymentIntent
             const res = await fetch(`${API_BASE}/create-payment-intent`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -43,7 +42,6 @@ function CheckoutForm() {
             });
             const { clientSecret } = await res.json();
 
-            // Step 2: Confirm payment
             const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
                 payment_method: { card: elements.getElement(CardElement) },
             });
@@ -55,7 +53,6 @@ function CheckoutForm() {
             }
 
             if (paymentIntent.status === "succeeded") {
-                // Step 3: Save order
                 const order = {
                     customer: form.name,
                     address: form.address,
@@ -85,18 +82,51 @@ function CheckoutForm() {
     };
 
     return (
-        <div>
+        <div style={{ maxWidth: "500px", margin: "auto", padding: "20px" }}>
             <h2>Checkout</h2>
+
             <input name="name" placeholder="Name" value={form.name} onChange={handleChange} />
             <input name="address" placeholder="Address" value={form.address} onChange={handleChange} />
             <input name="city" placeholder="City" value={form.city} onChange={handleChange} />
             <input name="zip" placeholder="Zip" value={form.zip} onChange={handleChange} />
 
-            <div style={{ margin: "20px 0" }}>
-                <CardElement />
+            {/* ✅ Styled Stripe Card Input */}
+            <div
+                style={{
+                    marginTop: "20px",
+                    padding: "12px",
+                    border: "1px solid #ccc",
+                    borderRadius: "8px",
+                    backgroundColor: "#fafafa",
+                }}
+            >
+                <CardElement
+                    options={{
+                        style: {
+                            base: {
+                                fontSize: "16px",
+                                color: "#32325d",
+                                '::placeholder': { color: "#aab7c4" },
+                            },
+                            invalid: { color: "#fa755a" },
+                        },
+                    }}
+                />
             </div>
 
-            <button onClick={handlePurchase} disabled={loading || !stripe}>
+            <button
+                onClick={handlePurchase}
+                disabled={loading || !stripe}
+                style={{
+                    marginTop: "20px",
+                    padding: "10px 20px",
+                    backgroundColor: "#6772e5",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                }}
+            >
                 {loading ? "Processing..." : "Pay Now"}
             </button>
         </div>
