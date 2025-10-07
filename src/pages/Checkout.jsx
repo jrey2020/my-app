@@ -1,101 +1,112 @@
 ﻿import React, { useState, useContext } from "react";
 import { CartContext } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
-function Checkout() {
+const stripePromise = loadStripe("pk_test_51SFNrNDHQ9S6PqjANgCcyTbXQh3ZaYWlzSwsUU5iN1uICg7yx0G6ZbyZiQ06zoJVWBCfMd4EQeJ69doZ1kx9yQC300R8FU3HGd");
+
+function CheckoutForm() {
     const { cart, clearCart } = useContext(CartContext);
     const navigate = useNavigate();
+    const stripe = useStripe();
+    const elements = useElements();
 
-    const [form, setForm] = useState({
-        name: "",
-        address: "",
-        city: "",
-        zip: ""
-    });
+    const [form, setForm] = useState({ name: "", address: "", city: "", zip: "" });
+    const [loading, setLoading] = useState(false);
 
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
     const handlePurchase = async () => {
+        if (!stripe || !elements) return;
         if (cart.length === 0) {
             alert("Your cart is empty!");
             return;
         }
 
-        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        setLoading(true);
 
-        const order = {
-            customer: form.name,
-            address: form.address,
-            city: form.city,
-            zip: form.zip,
-            items: cart,
-            total,
-        };
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        const amountInCents = Math.round(total * 100);
 
         try {
             const API_BASE =
                 import.meta.env.MODE === "development"
                     ? "http://localhost:5000"
-                    : "https://robot-backend-ywcd.onrender.com"; // <-- update with your deployed backend URL
+                    : "https://robot-backend-ywcd.onrender.com";
 
-            const res = await fetch(`${API_BASE}/orders`, {
+            // Step 1: Create PaymentIntent
+            const res = await fetch(`${API_BASE}/create-payment-intent`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(order),
+                body: JSON.stringify({ amount: amountInCents }),
+            });
+            const { clientSecret } = await res.json();
+
+            // Step 2: Confirm payment
+            const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: { card: elements.getElement(CardElement) },
             });
 
-            if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`);
+            if (error) {
+                alert(error.message);
+                setLoading(false);
+                return;
             }
 
-            const data = await res.json();
-            alert(`✅ Purchase complete!\n\nOrder ID: ${data.id}`);
-            clearCart();
-            navigate("/");
+            if (paymentIntent.status === "succeeded") {
+                // Step 3: Save order
+                const order = {
+                    customer: form.name,
+                    address: form.address,
+                    city: form.city,
+                    zip: form.zip,
+                    items: cart,
+                    total,
+                };
+
+                const orderRes = await fetch(`${API_BASE}/orders`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(order),
+                });
+
+                const data = await orderRes.json();
+                alert(`✅ Payment successful!\nOrder ID: ${data.id}`);
+                clearCart();
+                navigate("/");
+            }
         } catch (err) {
-            console.error("❌ Error posting order:", err);
-            alert("Error completing purchase. Please try again.");
+            console.error("❌ Error:", err);
+            alert("Error processing payment. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div>
             <h2>Checkout</h2>
+            <input name="name" placeholder="Name" value={form.name} onChange={handleChange} />
+            <input name="address" placeholder="Address" value={form.address} onChange={handleChange} />
+            <input name="city" placeholder="City" value={form.city} onChange={handleChange} />
+            <input name="zip" placeholder="Zip" value={form.zip} onChange={handleChange} />
 
-            <input
-                type="text"
-                name="name"
-                placeholder="Name"
-                value={form.name}
-                onChange={handleChange}
-            />
-            <input
-                type="text"
-                name="address"
-                placeholder="Address"
-                value={form.address}
-                onChange={handleChange}
-            />
-            <input
-                type="text"
-                name="city"
-                placeholder="City"
-                value={form.city}
-                onChange={handleChange}
-            />
-            <input
-                type="text"
-                name="zip"
-                placeholder="Zip"
-                value={form.zip}
-                onChange={handleChange}
-            />
+            <div style={{ margin: "20px 0" }}>
+                <CardElement />
+            </div>
 
-            <button onClick={handlePurchase}>Complete Purchase</button>
+            <button onClick={handlePurchase} disabled={loading || !stripe}>
+                {loading ? "Processing..." : "Pay Now"}
+            </button>
         </div>
     );
 }
 
-export default Checkout;
+export default function Checkout() {
+    return (
+        <Elements stripe={stripePromise}>
+            <CheckoutForm />
+        </Elements>
+    );
+}
